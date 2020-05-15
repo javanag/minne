@@ -1,0 +1,4 @@
+psycopg2
+pymumble==1.1
+sqlalchemy
+sqlalchemy-utils
