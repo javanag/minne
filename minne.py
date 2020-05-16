@@ -4,9 +4,10 @@ from models import Message
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import sessionmaker
+from tidylib import tidy_fragment
+import datetime
 import pymumble_py3 as pymumble
 import time
-import datetime
 
 mumble_client = None
 session = None
@@ -180,10 +181,12 @@ def on_message(message):
     user = mumble_client.users[message.actor]
     message_text = message.message
 
+    html_linted_message_text, _ = tidy_fragment(message_text)
+
     message_record = Message(
         user_name=user['name'],
         channel_name=channel['name'],
-        message=message_text,
+        message=html_linted_message_text,
         timestamp=datetime.datetime.now())
 
     session.add(message_record)
