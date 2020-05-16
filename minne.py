@@ -53,7 +53,7 @@ def main():
 
 def on_user_join(user, message=None):
     '''Callback prints message history to user upon joining server.
-    
+
     Due to official Mumble client truncating messages that would take up a
     larger area than 2048^2 px, estimate the area of the rectangle generated
     assuming all text is 32px font. To account for larger HTML text like the h1
@@ -87,6 +87,17 @@ def on_user_join(user, message=None):
 
     for message in records:
         formatted_message = format_message(user['name'], message)
+
+        # Send image messages individually due to lower space predictability
+        if '<img' in formatted_message:
+            user.send_text_message(
+                f"<br />{'<br />'.join(formatted_messages)}")
+            formatted_messages = []
+            max_message_line_width = 0
+
+            user.send_text_message(f"<br />{formatted_message}")
+            continue
+
         message_line_width = len(formatted_message)
         if message_line_width >= max_message_line_width:
             max_message_line_width = message_line_width
@@ -105,7 +116,6 @@ def on_user_join(user, message=None):
 
             max_message_line_width = message_line_width
             formatted_messages.append(formatted_message)
-            time.sleep(0.2)
 
     user.send_text_message(f"<br />{'<br />'.join(formatted_messages)}")
 
