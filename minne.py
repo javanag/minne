@@ -84,8 +84,35 @@ def on_user_join(user, message=None):
 
     formatted_messages = []
     max_message_line_width = 0
+    previous_message_date = None
 
     for message in records:
+        current_message_date = message.timestamp.date()
+        if not previous_message_date or \
+                not (previous_message_date == current_message_date):
+
+            date_change_line = \
+                '<h3 class=\"log-time\">['\
+                f"{current_message_date.strftime('%a %B %d %Y')}"\
+                ']</h3>'
+            date_change_line_width = len(date_change_line)
+            if date_change_line_width >= max_message_line_width:
+                max_message_line_width = date_change_line_width
+
+            # TODO: Fix the following code duplication later
+            message_line_height = (len(formatted_messages) + 1)
+            total_message_area = max_message_line_width * \
+                message_line_height * \
+                ESTIMATED_MUMBLE_FONT_SIZE_PX
+
+            if total_message_area < MAX_MUMBLE_CLIENT_MESSAGE_AREA:
+                formatted_messages.append(date_change_line)
+            else:
+                user.send_text_message(
+                    f"<br />{'<br />'.join(formatted_messages)}")
+                formatted_messages = [date_change_line]
+                max_message_line_width = date_change_line_width
+
         formatted_message = format_message(user['name'], message)
 
         # Send image messages individually due to lower space predictability
@@ -116,6 +143,7 @@ def on_user_join(user, message=None):
 
             max_message_line_width = message_line_width
             formatted_messages.append(formatted_message)
+        previous_message_date = current_message_date
 
     user.send_text_message(f"<br />{'<br />'.join(formatted_messages)}")
 
