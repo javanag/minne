@@ -9,8 +9,7 @@ A Mumble bot that will remind you of conversations past. Upon connection to the 
 In addition to installing the pip packages:
 `python3 -m pip install -r requirements.txt`
 
-The package `pymumble` relies on `libopus`, look for it and install it using
-your OS's package manager.
+Some pip packages rely on OS libraries. Look for and install `libopus` and `tidy` (HTML reformatter) via your OS's package manager.
 
 ### Connections
 
