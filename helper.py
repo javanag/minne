@@ -16,3 +16,17 @@ def format_message(user_name, message_record):
     formatted_message = \
         f'{timestamp_string} {sender_string} {message_record.message}'
     return formatted_message
+
+
+def setup_mumble_profile(mumble_client, config):
+    '''Mute and deafen self, set informative comment.'''
+    minne_user = mumble_client.users.myself
+    minne_channel = mumble_client.channels[minne_user['channel_id']]
+
+    comment_message = \
+        f"Recording chat history in channel: <b>{minne_channel['name']}</b>"\
+        "<br />When you rejoin this channel, I'll send the last"\
+        f" {config.chat_history_day_count} days of chats to you privately."
+
+    minne_user.deafen()
+    minne_user.comment(comment_message)

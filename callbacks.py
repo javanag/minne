@@ -1,4 +1,7 @@
-from helper import format_message
+from helper import (
+    format_message,
+    setup_mumble_profile
+)
 from models import Message
 from tidylib import tidy_fragment
 import datetime
@@ -48,9 +51,17 @@ def create_on_user_join_callback(mumble_client, session, config):
     One this area limit is reached, send the message, and continue to accrue
     and calculate area of messages until there are none remaining that fall
     within the configured chat history window.
+
+    When first user joins after bot connects, deafen self and set comment.
     '''
+    initialized_mumble_profile = False
 
     def on_user_join(user, message=None):
+        nonlocal initialized_mumble_profile
+        if not initialized_mumble_profile:
+            setup_mumble_profile(mumble_client, config)
+            initialized_mumble_profile = True
+
         MAX_MUMBLE_CLIENT_MESSAGE_AREA = 4194304
         ESTIMATED_MUMBLE_FONT_SIZE_PX = 32
 

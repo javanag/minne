@@ -42,7 +42,7 @@ def main():
         pymumble.constants.PYMUMBLE_CLBK_USERCREATED,
         create_on_user_join_callback(mumble_client, session, config)
     )
-    mumble_client.callbacks.set_callback(
+    mumble_client.callbacks.add_callback(
         pymumble.constants.PYMUMBLE_CLBK_TEXTMESSAGERECEIVED,
         create_on_message_callback(mumble_client, session)
     )
