@@ -1,33 +1,28 @@
 from config import Configuration
 from models import Base
-from models import Message
 from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
+from sqlalchemy_utils import (
+    database_exists,
+    create_database
+)
 from sqlalchemy.orm import sessionmaker
-from tidylib import tidy_fragment
-import datetime
 import pymumble_py3 as pymumble
 import time
-
-mumble_client = None
-session = None
-chat_history_day_count = None
+from callbacks import (
+    create_on_message_callback,
+    create_on_user_join_callback
+)
 
 
 def main():
-    global mumble_client
     config = Configuration()
-
-    global chat_history_day_count
-    chat_history_day_count = config.chat_history_day_count
 
     engine = create_engine(config.db_connection_url, echo=True)
     if not database_exists(engine.url):
         create_database(engine.url)
+
     Base.metadata.create_all(engine)  # Create all tables if necessary
     Session = sessionmaker(bind=engine)
-
-    global session
     session = Session()
 
     mumble_client = pymumble.Mumble(
@@ -44,153 +39,16 @@ def main():
     mumble_client.is_ready()
 
     mumble_client.callbacks.add_callback(
-        pymumble.constants.PYMUMBLE_CLBK_USERCREATED, on_user_join)
+        pymumble.constants.PYMUMBLE_CLBK_USERCREATED,
+        create_on_user_join_callback(mumble_client, session, config)
+    )
     mumble_client.callbacks.set_callback(
-        pymumble.constants.PYMUMBLE_CLBK_TEXTMESSAGERECEIVED, on_message)
+        pymumble.constants.PYMUMBLE_CLBK_TEXTMESSAGERECEIVED,
+        create_on_message_callback(mumble_client, session)
+    )
 
     while True:
         time.sleep(1)
-
-
-def on_user_join(user, message=None):
-    '''Callback prints message history to user upon joining server.
-
-    Due to official Mumble client truncating messages that would take up a
-    larger area than 2048^2 px, estimate the area of the rectangle generated
-    assuming all text is 32px font. To account for larger HTML text like the h1
-    tag.
-
-    One this area limit is reached, send the message, and continue to accrue
-    and calculate area of messages until there are none remaining that fall
-    within the configured chat history window.
-    '''
-    MAX_MUMBLE_CLIENT_MESSAGE_AREA = 4194304
-    ESTIMATED_MUMBLE_FONT_SIZE_PX = 32
-
-    channel = mumble_client.channels[user['channel_id']]
-
-    today = datetime.datetime.now()
-    response_cutoff_date = today - datetime.timedelta(
-        days=chat_history_day_count)
-
-    records = session.query(
-        Message
-    ).filter(
-        Message.timestamp >= response_cutoff_date
-    ).filter_by(
-        channel_name=channel['name']
-    ).order_by(
-        Message.timestamp
-    ).all()
-
-    formatted_messages = []
-    max_message_line_width = 0
-    previous_message_date = None
-
-    for message in records:
-        current_message_date = message.timestamp.date()
-        if not previous_message_date or \
-                not (previous_message_date == current_message_date):
-
-            date_change_line = \
-                '<h3 class=\"log-time\">['\
-                f"{current_message_date.strftime('%a %B %d %Y')}"\
-                ']</h3>'
-            date_change_line_width = len(date_change_line)
-            if date_change_line_width >= max_message_line_width:
-                max_message_line_width = date_change_line_width
-
-            # TODO: Fix the following code duplication later
-            message_line_height = (len(formatted_messages) + 1)
-            total_message_area = max_message_line_width * \
-                message_line_height * \
-                ESTIMATED_MUMBLE_FONT_SIZE_PX
-
-            if total_message_area < MAX_MUMBLE_CLIENT_MESSAGE_AREA:
-                formatted_messages.append(date_change_line)
-            else:
-                user.send_text_message(
-                    f"<br />{'<br />'.join(formatted_messages)}")
-                formatted_messages = [date_change_line]
-                max_message_line_width = date_change_line_width
-
-        formatted_message = format_message(user['name'], message)
-
-        # Send image messages individually due to lower space predictability
-        if '<img' in formatted_message:
-            user.send_text_message(
-                f"<br />{'<br />'.join(formatted_messages)}")
-            formatted_messages = []
-            max_message_line_width = 0
-
-            user.send_text_message(f"<br />{formatted_message}")
-            continue
-
-        message_line_width = len(formatted_message)
-        if message_line_width >= max_message_line_width:
-            max_message_line_width = message_line_width
-
-        message_line_height = (len(formatted_messages) + 1)
-        total_message_area = max_message_line_width * \
-            message_line_height * \
-            ESTIMATED_MUMBLE_FONT_SIZE_PX
-
-        if total_message_area < MAX_MUMBLE_CLIENT_MESSAGE_AREA:
-            formatted_messages.append(formatted_message)
-        else:
-            user.send_text_message(
-                f"<br />{'<br />'.join(formatted_messages)}")
-            formatted_messages = []
-
-            max_message_line_width = message_line_width
-            formatted_messages.append(formatted_message)
-        previous_message_date = current_message_date
-
-    user.send_text_message(f"<br />{'<br />'.join(formatted_messages)}")
-
-
-def format_message(user_name, message_record):
-    timestamp_string = \
-        "<span class=\"log-time\">["\
-        f"{message_record.timestamp.strftime('%H:%M:%S')}"\
-        "]</span>"
-
-    if user_name == message_record.user_name:
-        sender_string = \
-            'To <span class="log-channel">'\
-            f'{message_record.channel_name}</span>:'
-    else:
-        sender_string = \
-            '<b><span class="log-source">'\
-            f'{message_record.user_name}</span></b>:'
-
-    formatted_message = \
-        f'{timestamp_string} {sender_string} {message_record.message}'
-    return formatted_message
-
-
-def on_message(message):
-    '''Callback stores messages in same channel to database upon reception .'''
-    try:
-        channel_id = message.channel_id.pop()
-    except IndexError:
-        # No channel_id means it's a private message, skip for now
-        return
-
-    channel = mumble_client.channels[channel_id]
-    user = mumble_client.users[message.actor]
-    message_text = message.message
-
-    html_linted_message_text, _ = tidy_fragment(message_text)
-
-    message_record = Message(
-        user_name=user['name'],
-        channel_name=channel['name'],
-        message=html_linted_message_text,
-        timestamp=datetime.datetime.now())
-
-    session.add(message_record)
-    session.commit()
 
 
 if __name__ == '__main__':
