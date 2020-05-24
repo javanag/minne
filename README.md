@@ -1,10 +1,14 @@
 # Minne
 
-A Mumble bot that will remind you of conversations past. Upon connection to the server (a configurable time period of) chat history in the joining user's channel will be privately sent to them as a formatted HTML text message, that mimics the style of the normal Mumble client UI with UTC timestamps and dates between messages.
+A Mumble bot that will remind you of conversations past. Upon connection to the server (a configurable time period of) chat history in the joining user's channel will be privately sent to them as a formatted HTML text message, that mimics the style of the normal Mumble client UI with timestamps and dates between messages.
 
 <img src="screenshot.png" alt="Screen shot of functionality"/>
 
 ## Setup
+
+### Run
+
+Execute with the standard `python3 minne.py`.
 
 ### Dependencies
 
@@ -40,4 +44,4 @@ MUMBLE_USERNAME
 
 ## Limitations
 
-Currently bot only listens and records messages in it's current channel, or also possibly if it is shouted at. Direct messages to the bot are ignored.
+Currently bot only listens and records messages in it's current channel, or also possibly if it is shouted at. Direct messages to the bot are ignored. Timestamps are only based on local time of the `minne` instance, not the equivalent local times of the connecting users.
