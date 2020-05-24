@@ -6,7 +6,7 @@ class Configuration():
 
     def __init__(self):
         self.mumble_username = os.getenv('MUMBLE_USERNAME', 'minne')
-        self.mumble_server_host = os.environ['MUMBLE_SERVER_HOST']
+        self.mumble_server_host = os.getenv('MUMBLE_SERVER_HOST', 'localhost')
         self.mumble_server_port = os.getenv('MUMBLE_SERVER_PORT', '64738')
         self.mumble_server_password = os.getenv('MUMBLE_SERVER_PASSWORD', '')
 
